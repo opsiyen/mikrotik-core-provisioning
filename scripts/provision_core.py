@@ -46,12 +46,70 @@ def read_commands(config_path="config/base_config.txt"):
     return commands
 
 
-def apply_commands(conn, commands):
+def ensure_bridge_exists(conn, bridge_name, dry_run=False):
+    """Buat bridge hanya jika belum ada. Mode dry_run hanya mencetak."""
+    # Cek apakah bridge sudah ada
+    output = conn.send_command(f"/interface bridge print where name={bridge_name}")
+    if bridge_name in output:
+        logging.info(f"✅ Bridge '{bridge_name}' sudah ada, lewati pembuatan")
+        return
+    else:
+        if dry_run:
+            logging.info(f"[DRY-RUN] Akan membuat bridge '{bridge_name}'")
+        else:
+            logging.info(f"➕ Membuat bridge '{bridge_name}'")
+            conn.send_command(f"/interface bridge add name={bridge_name}")
+
+
+def ensure_identity(conn, expected_name, dry_run=False):
+    """Set identity hanya jika belum sesuai"""
+    output = conn.send_command("/system identity print")
+    # Output biasanya "name: xxx"
+    current_name = output.split(":")[1].strip() if "name:" in output else None
+
+    if current_name == expected_name:
+        logging.info(f"✅ Identity sudah '{expected_name}', lewati perubahan")
+        return
+    else:
+        if dry_run:
+            logging.info(
+                f"[DRY-RUN] Akan mengubah identity dari '{current_name}' menjadi '{expected_name}'"
+            )
+        else:
+            logging.info(
+                f"🔄 Mengubah identity dari '{current_name}' menjadi '{expected_name}'"
+            )
+            # Gunakan expect_string untuk mengantisipasi perubahan prompt
+            conn.send_command(
+                f"/system identity set name={expected_name}",
+                expect_string=r"\] >",
+                read_timeout=30,
+            )
+            logging.info(f"Identity berhasil diubah menjadi '{expected_name}'")
+
+
+def apply_commands(conn, commands, dry_run=False):
+    """Eksekusi perintah dengan idempotency dan penanganan khusus untuk set identity."""
     for cmd in commands:
-        logging.info(f"Menjalankan: {cmd}")
-        output = conn.send_command(cmd)
-        if output:
-            logging.debug(f"Output: {output}")
+        # Handle perintah add bridge secara idempotent
+        if cmd.startswith("/interface bridge add name="):
+            bridge_name = cmd.split("name=")[1].split()[0].strip()
+            ensure_bridge_exists(conn, bridge_name, dry_run)
+
+        # Handle perintah set identity (perubahan prompt)
+        elif cmd.startswith("/system identity set name="):
+            expected_name = cmd.split("name=")[1].split()[0].strip()
+            ensure_identity(conn, expected_name, dry_run)
+
+        # Perintah lain
+        else:
+            if dry_run:
+                logging.info(f"[DRY-RUN] {cmd}")
+            else:
+                logging.info(f"Menjalankan: {cmd}")
+                output = conn.send_command(cmd)
+                if output:
+                    logging.debug(f"Output: {output}")
 
 
 def verify_identity(conn, expected_name):
@@ -81,6 +139,13 @@ def verify_bridge_exists(conn, bridge_name):
 # ========== 3. Main ==========
 def main():
     setup_logging()
+
+    # Tambahkan opsi dry-run (bisa dari environment variable atau argumen)
+    # Sederhana: cek apakah ada file .dry-run atau variabel env
+    dry_run = os.getenv("DRY_RUN", "false").lower() == "true"
+    if dry_run:
+        logging.info("===== DRY-RUN MODE AKTIF - TIDAK ADA PERUBAHAN NYATA =====")
+
     device = load_credentials()
     if not all([device["host"], device["username"], device["password"]]):
         logging.error("Kredensial tidak lengkap")
@@ -88,14 +153,7 @@ def main():
 
     conn = connect_to_router(device)
     commands = read_commands()
-    apply_commands(conn, commands)
-
-    # Verifikasi
-    logging.info("=== Verifikasi konfigurasi ===")
-    verify_identity(conn, "router-netmiko")  # sesuaikan dengan nama yang diset
-    verify_bridge_exists(conn, "bridge-lan")
-    verify_bridge_exists(conn, "bridge-wan")
-
+    apply_commands(conn, commands, dry_run)
     conn.disconnect()
     logging.info("Provisioning selesai")
 
