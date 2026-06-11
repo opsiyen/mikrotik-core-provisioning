@@ -105,15 +105,19 @@ def ensure_vlan(conn, vlan_name, vlan_id, interface, dry_run=False):
     # cek apakah vlan sudah ada
     output = conn.send_command(f"/interface vlan print where name={vlan_name}")
     if vlan_name in output and interface in output:
-        logging.info(f"󰡕 Vlan '{vlan_name}' sudah ada di {interface}, lewati pembuatan")
+        logging.info(
+            f"󰡕 Vlan '{vlan_name}' sudah ada di '{interface}', lewati pembuatan"
+        )
         return
     else:
         if dry_run:
             logging.info(
-                f" Akan membuat vlan '{vlan_name}'(ID: {vlan_id}) di {interface}"
+                f" Akan membuat vlan '{vlan_name}' id:'{vlan_id}' di '{interface}'"
             )
         else:
-            logging.info(f" Membuat vlan '{vlan_name}'(ID: {vlan_id}) di {interface}")
+            logging.info(
+                f" Membuat vlan '{vlan_name}' id:'{vlan_id}' di '{interface}'"
+            )
             conn.send_command(
                 f"/interface vlan add name={vlan_name} vlan-id={vlan_id} interface={interface}"
             )
@@ -125,14 +129,14 @@ def ensure_ip_address(conn, address, interface, dry_run=False):
     output = conn.send_command(f'/ip address print where address="{address}"')
     if address in output and interface in output:
         logging.info(
-            f"󰡕 Ip address '{address}' sudah ada di {interface}, lewati pembuatan"
+            f"󰡕 Ip address '{address}' sudah ada di '{interface}', lewati pembuatan"
         )
         return
     else:
         if dry_run:
-            logging.info(f" Akan membuat ip address '{address}' di {interface}")
+            logging.info(f" Akan membuat ip address '{address}' untuk '{interface}'")
         else:
-            logging.info(f" Membuat ip address '{address}' di {interface}")
+            logging.info(f" Membuat ip address '{address}' untuk '{interface}'")
             conn.send_command(
                 f"/ip address add address={address} interface={interface}"
             )
@@ -161,17 +165,72 @@ def ensure_list_member(conn, listm, interface, dry_run=False):
     output = conn.send_command(f"/interface list member print where list={listm}")
     if listm in output and interface in output:
         logging.info(
-            f"󰡕 List member '{listm}' sudah ada di {interface}, lewati pembuatan"
+            f"󰡕 List member '{listm}' sudah ada di '{interface}', lewati pembuatan"
         )
         return
     else:
         if dry_run:
-            logging.info(f" Akan membuat list member '{listm}' di {interface}")
-        else:
-            logging.info(f" Membuat list member '{listm}' di {interface}")
-            conn.send_command(
-                f"/interface list member add list={listm} interface={interface}"
+            logging.info(
+                f" Akan memasukkan member '{interface}' ke dalam list '{listm}'"
             )
+        else:
+            logging.info(f" Memasukkan member '{interface}' ke dalam list '{listm}'")
+            conn.send_command(
+                f"/interface list member add interface={interface} list={listm}"
+            )
+
+
+def ensure_bridge_port(conn, interface, bridge, dry_run=False):
+    """Buat bridge port interface hanya jika belum ada. Mode dry_run hanya mencetak."""
+    # cek apakah bridge port interface sudah ada
+    output = conn.send_command(
+        f'/interface bridge port print where interface="{interface}"'
+    )
+    if interface in output and bridge in output:
+        logging.info(
+            f"󰡕 Interface '{interface}' sudah ada di '{bridge}', lewati pembuatan"
+        )
+        return
+    else:
+        if dry_run:
+            logging.info(
+                f" Akan memasukkan interface '{interface}' ke dalam '{bridge}'"
+            )
+        else:
+            logging.info(f" Memasukkan interface '{interface}' ke dalam '{bridge}'")
+            conn.send_command(
+                f"/interface bridge port add interface={interface} bridge={bridge}"
+            )
+
+
+def ensure_dns(conn, servers, allow_remote, dry_run=False):
+    output = conn.send_command("/ip dns print")
+    allow_str = "yes" if allow_remote else "no"
+
+    # Gabungkan semua baris menjadi satu string (hapus newline)
+    output_block = " ".join(output.splitlines())
+
+    # Cek apakah servers dan allow ada di output
+    if (
+        servers in output_block
+        and f"allow-remote-requests: {allow_str}" in output_block
+    ):
+        logging.info(f"󰡕 DNS sudah sesuai (servers={servers}, allow={allow_str})")
+        return
+
+    if dry_run:
+        logging.info(
+            f" Akan set DNS: servers={servers}, allow-remote-requests={allow_str}"
+        )
+        return
+
+    logging.info(
+        f" Mengatur DNS: servers={servers}, allow-remote-requests={allow_str}"
+    )
+    conn.send_command(
+        f"/ip dns set servers={servers} allow-remote-requests={allow_str}"
+    )
+    logging.info("DNS berhasil dikonfigurasi")
 
 
 def ensure_ntp_client(conn, enabled, server, dry_run=False):
@@ -299,6 +358,20 @@ def verify_list_member_exists(conn, list_member):
         return False
 
 
+def verify_bridge_port_exists(conn, interface):
+    """Verifikasi apakah bridge port interface sudah ada"""
+    output = conn.send_command(
+        f'/interface bridge port print where interface="{interface}"'
+    )
+    # Jika bridge port interface ditemukan, output tidak kosong
+    if interface in output:
+        logging.info(f"󰡕 bridge port '{interface}' ditemukan")
+        return True
+    else:
+        logging.error(f"󰛉 bridge port '{interface}' tidak ditemukan")
+        return False
+
+
 # ========== verify bottom ==========
 # ========== apply top ==========
 def apply_config(conn, config, dry_run=False):
@@ -338,7 +411,20 @@ def apply_config(conn, config, dry_run=False):
         interface = list_member["interface"]
         ensure_list_member(conn, listm, interface, dry_run)
 
-    # 7. NTP Client
+    # 7. Bridge Port
+    for bridge_port in config.get("bridge_ports", []):
+        bridge = bridge_port["bridge"]
+        interface = bridge_port["interface"]
+        ensure_bridge_port(conn, interface, bridge, dry_run)
+
+    # 8. DHCP Client
+
+    # 9. DNS
+    if "dns" in config:
+        dns = config["dns"]
+        ensure_dns(conn, dns["servers"], dns["allow_remote_requests"], dry_run)
+
+    # 10. NTP Client
     if "ntp_client" in config:
         ntp = config["ntp_client"]
         ensure_ntp_client(conn, ntp["enabled"], ntp["server"], dry_run)

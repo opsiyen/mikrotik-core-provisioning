@@ -6,24 +6,24 @@ bridges:
   - name: bridge-wan
 
 vlans:
-  - name     : vlan11-services
-    vlan_id  : 11
-    interface: bridge-lan
-  - name     : vlan12-cctv
-    vlan_id  : 12
-    interface: bridge-lan
-  - name     : vlan13-iot
-    vlan_id  : 13
-    interface: bridge-lan
-  - name     : vlan14-private
-    vlan_id  : 14
-    interface: bridge-lan
-  - name     : vlan15-guest
-    vlan_id  : 15
-    interface: bridge-lan
-  - name     : vlan16-management
-    vlan_id  : 16
-    interface: bridge-lan
+- name     : vlan11-services
+  vlan_id  : 11
+  interface: bridge-lan
+- name     : vlan12-cctv
+  vlan_id  : 12
+  interface: bridge-lan
+- name     : vlan13-iot
+  vlan_id  : 13
+  interface: bridge-lan
+- name     : vlan14-private
+  vlan_id  : 14
+  interface: bridge-lan
+- name     : vlan15-guest
+  vlan_id  : 15
+  interface: bridge-lan
+- name     : vlan16-management
+  vlan_id  : 16
+  interface: bridge-lan
 
 ip_addresses:
   - address  : 192.168.11.1/28
@@ -56,3 +56,29 @@ list_members:
 ntp_client:
   enabled: yes
   server : id.pool.ntp.org
+
+bridge_ports:
+  - bridge   : bridge-wan
+    interface: ether1
+  - bridge   : bridge-lan
+    interface: ether2
+  - bridge   : bridge-lan
+    interface: ether3
+  - bridge   : bridge-lan
+    interface: ether4
+  - bridge   : bridge-lan
+    interface: ether5
+    
+dhcp_client:
+  interface   : bridge-wan
+  use_peer_dns: no
+  disabled    : no
+
+dns:
+  servers              : 8.8.8.8,8.8.4.4
+  allow_remote_requests: yes
+
+firewall_nat:
+  chain        : srcnat
+  out_interface: bridge-wan
+  action       : masquerade
