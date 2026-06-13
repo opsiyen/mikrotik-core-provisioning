@@ -71,14 +71,15 @@ bridge_ports:
     
 dhcp_client:
   interface   : bridge-wan
-  use_peer_dns: no
-  disabled    : no
+  use_peer_dns: false
+  disabled    : false
 
+nat_masquerade:
+  out_interface: bridge-wan
+  chain        : srcnat
+  action       : masquerade
+  
 dns:
   servers              : 8.8.8.8,8.8.4.4
   allow_remote_requests: yes
 
-firewall_nat:
-  chain        : srcnat
-  out_interface: bridge-wan
-  action       : masquerade
