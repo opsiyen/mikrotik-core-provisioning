@@ -13,7 +13,9 @@ def main():
 
     device = load_credentials()
     if not all([device["host"], device["username"], device["password"]]):
-        logging.error(" Kredensial tidak lengkap")
+        logging.error(
+            " Kredensial tidak lengkap. Salin file .env.example menjadi .env dan isi dengan IP, Username, dan Password yang valid."
+        )
         return
 
     conn = connect_to_router(device)

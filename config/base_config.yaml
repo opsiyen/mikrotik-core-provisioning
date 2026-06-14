@@ -5,40 +5,6 @@ bridges:
   - name: bridge-lan
   - name: bridge-wan
 
-vlans:
-- name     : vlan11-services
-  vlan_id  : 11
-  interface: bridge-lan
-- name     : vlan12-cctv
-  vlan_id  : 12
-  interface: bridge-lan
-- name     : vlan13-iot
-  vlan_id  : 13
-  interface: bridge-lan
-- name     : vlan14-private
-  vlan_id  : 14
-  interface: bridge-lan
-- name     : vlan15-guest
-  vlan_id  : 15
-  interface: bridge-lan
-- name     : vlan16-management
-  vlan_id  : 16
-  interface: bridge-lan
-
-ip_addresses:
-  - address  : 192.168.11.1/28
-    interface: vlan11-services
-  - address  : 192.168.11.17/28
-    interface: vlan12-cctv
-  - address  : 192.168.11.33/28
-    interface: vlan13-iot
-  - address  : 192.168.11.49/28
-    interface: vlan14-private
-  - address  : 192.168.11.65/28
-    interface: vlan15-guest
-  - address  : 192.168.11.81/28
-    interface: vlan16-management
-
 interface_lists:
   - name   : allow
     comment: allow comment
@@ -83,3 +49,94 @@ dns:
   servers              : 8.8.8.8,8.8.4.4
   allow_remote_requests: yes
 
+vlans:
+- name     : vlan11-services
+  vlan_id  : 11
+  interface: bridge-lan
+- name     : vlan12-cctv
+  vlan_id  : 12
+  interface: bridge-lan
+- name     : vlan13-iot
+  vlan_id  : 13
+  interface: bridge-lan
+- name     : vlan14-private
+  vlan_id  : 14
+  interface: bridge-lan
+- name     : vlan15-guest
+  vlan_id  : 15
+  interface: bridge-lan
+- name     : vlan16-management
+  vlan_id  : 16
+  interface: bridge-lan
+
+ip_addresses:
+  - interface: vlan11-services
+    address  : 192.168.11.1/28
+  - interface: vlan12-cctv
+    address  : 192.168.11.17/28
+  - interface: vlan13-iot
+    address  : 192.168.11.33/28
+  - interface: vlan14-private
+    address  : 192.168.11.49/28
+  - interface: vlan15-guest
+    address  : 192.168.11.65/28
+  - interface: vlan16-management
+    address  : 192.168.11.81/28
+
+ip_pool:
+  - name   : pool-vlan11-services
+    ranges : 192.168.11.2-192.168.11.14
+  - name   : pool-vlan12-cctv
+    ranges : 192.168.11.18-192.168.11.30
+  - name   : pool-vlan13-iot
+    ranges : 192.168.11.34-192.168.11.46
+  - name   : pool-vlan14-private
+    ranges : 192.168.11.50-192.168.11.62
+  - name   : pool-vlan15-guest
+    ranges : 192.168.11.66-192.168.11.78
+  - name   : pool-vlan16-management
+    ranges : 192.168.11.82-192.168.11.94
+    
+dhcp_server:
+  - name        : dhcp-vlan11-services
+    interface   : vlan11-services
+    address_pool: pool-vlan11-services
+    network     : 192.168.11.0/28
+    gateway     : 192.168.11.1
+    dns         : 1.1.1.1
+    lease_time  : 10m
+  - name        : dhcp-vlan12-cctv
+    interface   : vlan12-cctv
+    address_pool: pool-vlan12-cctv
+    network     : 192.168.11.16/28
+    gateway     : 192.168.11.17
+    dns         : 1.1.1.1
+    lease_time  : 10m
+  - name        : dhcp-vlan13-iot
+    interface   : vlan13-iot
+    address_pool: pool-vlan13-iot
+    network     : 192.168.11.32/28
+    gateway     : 192.168.11.33
+    dns         : 1.1.1.1
+    lease_time  : 10m
+  - name        : dhcp-vlan14-private
+    interface   : vlan14-private
+    address_pool: pool-vlan14-private
+    network     : 192.168.11.48/28
+    gateway     : 192.168.11.49
+    dns         : 1.1.1.1
+    lease_time  : 10m
+  - name        : dhcp-vlan15-guest
+    interface   : vlan15-guest
+    address_pool: pool-vlan15-guest
+    network     : 192.168.11.64/28
+    gateway     : 192.168.11.65
+    dns         : 1.1.1.1
+    lease_time  : 10m
+  - name        : dhcp-vlan16-management
+    interface   : vlan16-management
+    address_pool: pool-vlan16-management
+    network     : 192.168.11.80/28
+    gateway     : 192.168.11.81
+    dns         : 1.1.1.1
+    lease_time  : 10m

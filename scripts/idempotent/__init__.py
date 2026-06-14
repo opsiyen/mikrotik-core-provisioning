@@ -6,6 +6,8 @@ from .nat_masquerade import ensure_nat_masquerade
 from .vlan import ensure_vlan_exists
 from .ip_address import ensure_ip_address_exists
 from .lists import ensure_interface_list_exists, ensure_list_member_exists
+from .ip_pool import ensure_ip_pool_exists
+from .dhcp_server import ensure_dhcp_server
 from .ntp_client import ensure_ntp_client
 
 
@@ -64,19 +66,27 @@ def apply_all(conn, config, dry_run=False):
     for ip in config.get("ip_addresses", []):
         ensure_ip_address_exists(conn, ip["address"], ip["interface"], dry_run)
 
-    # 9. INTERFACE LIST - OK
+    # 9. IP POOL - OK
+    for ip in config.get("ip_pool", []):
+        ensure_ip_pool_exists(conn, ip["name"], ip["ranges"], dry_run)
+
+    # 10. DHCP SERVER -
+    for dhcp_config in config.get("dhcp_server", []):
+        ensure_dhcp_server(conn, dhcp_config, dry_run)
+
+    # 11. INTERFACE LIST - OK
     for interface_list in config.get("interface_lists", []):
         ensure_interface_list_exists(
             conn, interface_list["name"], interface_list["comment"], dry_run
         )
 
-    # 10. LIST MEMBER - OK
+    # 12. LIST MEMBER - OK
     for list_member in config.get("list_members", []):
         ensure_list_member_exists(
             conn, list_member["list"], list_member["interface"], dry_run
         )
 
-    # 11. NTP CLIENT - OK
+    # 13. NTP CLIENT - OK
     if "ntp_client" in config:
         ntp = config["ntp_client"]
         ensure_ntp_client(conn, ntp["enabled"], ntp["server"], dry_run)
